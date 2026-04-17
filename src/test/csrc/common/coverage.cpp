@@ -38,6 +38,9 @@ FIRRTLCoverage::~FIRRTLCoverage() {
 }
 
 const char *FIRRTLCoverage::get_cover_name(uint32_t i) {
+  if (i >= get_total_points()) {
+    return nullptr;
+  }
   return get()->point_names[i];
 }
 
