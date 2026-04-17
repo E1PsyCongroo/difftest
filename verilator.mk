@@ -53,6 +53,10 @@ VERILATOR_5_024 := $(shell expr `$(VERILATOR_VER_CMD)` \>= 5024 2> /dev/null)
 ifeq ($(VERILATOR_5_024),1)
 VEXTRA_FLAGS += --quiet-stats
 endif
+VERILATOR_5_040 := $(shell expr `$(VERILATOR_VER_CMD)` \>= 5040 2> /dev/null)
+ifeq ($(VERILATOR_5_040),1)
+VEXTRA_FLAGS += -Wno-PARAMNODEFAULT
+endif
 
 # Verilator trace support
 EMU_TRACE ?=
