@@ -160,6 +160,7 @@ public:
   const char *get_name() {
     return "FIRRTL";
   };
+  const char *get_cover_name(uint32_t i);
   void reset();
 
   // coverage figures

@@ -24,6 +24,13 @@ extern "C" uint32_t get_cover_number() {
   return 0;
 }
 
+extern "C" const char *get_cover_point_name(size_t i) {
+  if (auto c = stats.get_feedback_cover()) {
+    return c->get_cover_name(i);
+  }
+  return nullptr;
+}
+
 extern "C" void update_stats(uint8_t *icover_bitmap) {
   if (auto c = stats.get_feedback_cover()) {
     c->to_covered_bytes(icover_bitmap);

@@ -37,6 +37,10 @@ FIRRTLCoverage::~FIRRTLCoverage() {
   }
 }
 
+const char *FIRRTLCoverage::get_cover_name(uint32_t i) {
+  return get()->point_names[i];
+}
+
 void FIRRTLCoverage::reset() {
   for (auto c: firrtl_cover) {
     memset(c.cover.points, 0, c.cover.total);
