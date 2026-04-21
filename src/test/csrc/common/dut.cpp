@@ -17,6 +17,7 @@
 
 SimStats stats;
 
+// Coverage
 extern "C" uint32_t get_cover_number() {
   if (auto c = stats.get_feedback_cover()) {
     return c->get_total_points();
@@ -31,7 +32,7 @@ extern "C" const char *get_cover_point_name(size_t i) {
   return nullptr;
 }
 
-extern "C" void update_stats(uint8_t *icover_bitmap) {
+extern "C" void update_stats_cover(uint8_t *icover_bitmap) {
   if (auto c = stats.get_feedback_cover()) {
     c->to_covered_bytes(icover_bitmap);
   }
@@ -44,3 +45,29 @@ extern "C" void display_uncovered_points() {
 extern "C" void set_cover_feedback(const char *name) {
   stats.set_feedback_cover(name);
 }
+
+// StateSequence
+extern "C" size_t get_state_number() {
+  if (auto s = stats.get_feedback_state()) {
+    return s->get_total_states();
+  }
+  return 0;
+}
+
+extern "C" size_t get_state_size() {
+  if (auto s = stats.get_feedback_state()) {
+    return s->get_state_size();
+  }
+  return 0;
+}
+
+extern "C" void update_stats_state(void *state_tracker) {
+  if (auto c = stats.get_feedback_state()) {
+    c->to_state_bytes(state_tracker);
+  }
+}
+
+extern "C" void set_state_feedback(const char *name) {
+  stats.set_feedback_state(name);
+}
+

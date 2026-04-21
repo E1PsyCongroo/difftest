@@ -18,6 +18,7 @@
 
 #include "common.h"
 #include "coverage.h"
+#include "state.h"
 #include <vector>
 
 class DUT {
@@ -46,6 +47,8 @@ class SimStats {
 public:
   // coverage statistics
   std::vector<Coverage *> cover;
+  // committed state sequences
+  std::vector<StateTracker *> state;
   // simulation exit code
   SimExitCode exit_code;
 
@@ -66,6 +69,10 @@ public:
     auto c_llvm = new LLVMSanCoverage;
     cover.push_back(c_llvm);
 #endif // LLVM_COVER
+#ifdef CONFIG_STATE_ARCHINTREG
+    auto s_archint = new ArchIntRegStateTracker;
+    state.push_back(s_archint);
+#endif // CONFIG_STATE_ARCHINTREG
 
     // #if defined(CONFIG_DIFFTEST_INSTRCOVER) && defined(FIRRTL_COVER)
     //     auto c_union_instr_firrtl = new UnionCoverage(c_instr, c_firrtl);
@@ -82,10 +89,14 @@ public:
     for (auto cov: cover) {
       cov->reset();
     }
+    for (auto seq: state) {
+      seq->reset();
+    }
     exit_code = SimExitCode::unknown;
   }
 
-  void update(DiffTestState *state) {
+  // Coverage
+  void update_cover(DiffTestState *state) {
     for (auto cov: cover) {
       cov->update(state);
     }
@@ -126,6 +137,30 @@ public:
     printf("Failed to find any feedback coverage.\n");
     return nullptr;
   }
+
+  // StateTracker
+  void update_state(DiffTestState *state) {
+    for (auto s: this->state) {
+      s->update(state);
+    }
+  }
+
+  void set_feedback_state(const char *name) {
+    for (auto s: state) {
+      s->update_is_feedback(name);
+    }
+  }
+
+  StateTracker *get_feedback_state() {
+    for (auto s: state) {
+      if (s->is_feedback) {
+        return s;
+      }
+    }
+    printf("Failed to find any feedback state sequence.\n");
+    return nullptr;
+  }
+
 };
 
 extern SimStats stats;
