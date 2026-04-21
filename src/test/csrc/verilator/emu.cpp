@@ -518,7 +518,7 @@ Emulator::~Emulator() {
   display_trapinfo();
 
 #ifndef CONFIG_NO_DIFFTEST
-  stats.update(difftest[0]->dut);
+  stats.update_cover(difftest[0]->dut);
 #endif // CONFIG_NO_DIFFTEST
 
   simMemory->display_stats();

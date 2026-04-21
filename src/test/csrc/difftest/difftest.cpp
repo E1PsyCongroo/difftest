@@ -334,6 +334,7 @@ int Difftest::step() {
 #endif
     for (int i = 0; i < CONFIG_DIFF_COMMIT_WIDTH; i++) {
       if (dut->commit[i].valid) {
+        stats.update_state(dut);
         if (do_instr_commit(i)) {
           return 1;
         }
