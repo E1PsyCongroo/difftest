@@ -72,27 +72,6 @@ public:
   const void* get_state_data(uint32_t i) const final;
 
   void to_state_bytes(void *bytes) final;
-
-  // const char *get_name() const {
-  //   return "ArchIntReg";
-  // }
-
-  // void reset() {
-  //   sequence.clear();
-  // }
-
-  // void update(DiffTestState *state) {
-  //   sequence.push_back(state->regs_int);
-  // }
-
-  // size_t get_entry_count() const {
-  //   return sequence.size();
-  // }
-
-  // void to_state_bytes(uint8_t *bytes) {
-  //   memcpy(bytes, sequence.data(), sequence.size() * sizeof(sequence[0]));
-  // };
-
 private:
   std::vector<DifftestArchIntRegState> tracker;
 };
