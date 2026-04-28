@@ -125,7 +125,11 @@ void FIRRTLCoverage::update_is_feedback(const char *cover_name) {
   }
 }
 
-void FIRRTLCoverage::to_covered_bytes(uint8_t *bytes) {
+size_t FIRRTLCoverage::cover_data_size() {
+  return sizeof(target->points[0]);
+}
+
+void FIRRTLCoverage::to_cover_data(void *data) {
   auto target = get();
   memcpy(bytes, target->points, target->total);
 }
@@ -153,19 +157,24 @@ uint32_t FIRRTLCoverage::cover_sum(const FIRRTLCoverPoint *cover) {
 #endif // FIRRTL_COVER
 
 #if VM_COVERAGE == 1
-static std::string verilator_format_metadata(const std::string &metadata) {
-  std::string result;
-  for (auto c: metadata) {
-    if (c == '\001') {
-      if (!result.empty()) {
-        result += " |";
-      }
-    } else if (c == '\002') {
-      result += ": ";
-    } else {
-      result += c;
-    }
+static void verilator_append_point_field(std::string &result, const char *key, const std::string &value) {
+  if (value.empty()) {
+    return;
   }
+  if (!result.empty()) {
+    result += ", ";
+  }
+  result += key;
+  result += ": ";
+  result += value;
+}
+
+static std::string verilator_format_point_name(const std::string &file, const std::string &line,
+                                               const std::string &col) {
+  std::string result;
+  verilator_append_point_field(result, "f", file);
+  verilator_append_point_field(result, "l", line);
+  verilator_append_point_field(result, "n", col);
   return result;
 }
 
@@ -202,13 +211,21 @@ static bool verilator_parse_line(const std::string &line, std::string &type, std
   }
 
   size_t pos = 0;
+  std::string file, lineno, column;
   while (pos < metadata.size()) {
     auto next = metadata.find('\001', pos);
     auto field = metadata.substr(pos, next == std::string::npos ? next : next - pos);
     std::string key, value;
-    if (verilator_parse_field(field, key, value) && key == "t") {
-      type = value;
-      break;
+    if (verilator_parse_field(field, key, value)) {
+      if (key == "t") {
+        type = value;
+      } else if (key == "f") {
+        file = value;
+      } else if (key == "l") {
+        lineno = value;
+      } else if (key == "n") {
+        column = value;
+      }
     }
     if (next == std::string::npos) {
       break;
@@ -219,7 +236,7 @@ static bool verilator_parse_line(const std::string &line, std::string &type, std
   if (type.empty()) {
     return false;
   }
-  point_name = verilator_format_metadata(metadata);
+  point_name = verilator_format_point_name(file, lineno, column);
   return true;
 }
 
@@ -317,17 +334,18 @@ void VerilatorCoverage::update_is_feedback(const char *cover_name) {
         found = true;
       }
     }
-    if (!found) {
-      printf("Unknown subtype of VerilatorCoverage: %s\n", cover_name);
-      assert(0);
-    }
+    Assert(found, "Unknown subtype of VerilatorCoverage: %s\n", cover_name);
   }
 }
 
-void VerilatorCoverage::to_covered_bytes(uint8_t *bytes) {
+size_t VerilatorCoverage::cover_data_size() {
+  return sizeof(uint64_t);
+}
+
+void VerilatorCoverage::to_cover_data(void *data) {
   if (auto group = get()) {
     for (size_t i = 0; i < group->points.size(); ++i) {
-      bytes[i] = group->points[i].count ? 1 : 0;
+      ((uint64_t *)data)[i] = group->points[i].count;
     }
   }
 }
@@ -335,10 +353,7 @@ void VerilatorCoverage::to_covered_bytes(uint8_t *bytes) {
 void VerilatorCoverage::load_from_verilator() {
   char filename[] = "/tmp/verilator-coverage-XXXXXX";
   auto fd = mkstemp(filename);
-  if (fd < 0) {
-    perror("mkstemp for Verilator coverage");
-    assert(0);
-  }
+  Assert(fd >= 0, "Failed to create temporary file for Verilator coverage");
   close(fd);
 
   Verilated::threadContextp()->coveragep()->write(filename);
@@ -525,7 +540,11 @@ void UnionCoverage::update_is_feedback(const char *cover_name) {
   delete[] correct_name;
 }
 
-void UnionCoverage::to_covered_bytes(uint8_t *bytes) {
-  c1->to_covered_bytes(bytes);
-  c2->to_covered_bytes(bytes + c1->get_total_points());
+size_t UnionCoverage::cover_data_size() {
+  return c1->cover_data_size() + c2->cover_data_size();
+}
+
+void UnionCoverage::to_cover_data(void *data) {
+  c1->to_cover_data(data);
+  c2->to_cover_data((uint8_t *)data + c1->get_total_points() * c1->cover_data_size());
 }

@@ -67,7 +67,8 @@ public:
   virtual void update_is_feedback(const char *cover_name) {
     is_feedback = !cover_name_cmp(cover_name, get_name());
   }
-  virtual void to_covered_bytes(uint8_t *bytes) = 0;
+  virtual size_t cover_data_size() = 0;
+  virtual void to_cover_data(void *data) = 0;
 
 protected:
   static int cover_name_cmp(const char *s1, const char *s2) {
@@ -177,7 +178,9 @@ public:
   void display_uncovered_points();
 
   void update_is_feedback(const char *cover_name);
-  void to_covered_bytes(uint8_t *bytes);
+
+  size_t cover_data_size();
+  void to_cover_data(void *data);
 
 private:
   const static int n_cover = sizeof(firrtl_cover) / sizeof(FIRRTLCoverPointParam);
@@ -233,7 +236,8 @@ public:
 
   // fuzzer feedback
   void update_is_feedback(const char *cover_name);
-  void to_covered_bytes(uint8_t *bytes);
+  size_t cover_data_size();
+  void to_cover_data(void *data);
 
 private:
   constexpr static int N_GROUP = 2;
@@ -288,12 +292,12 @@ public:
   }
 
   // fuzzer feedback
-  inline void to_covered_bytes(uint8_t *bytes) {
-    for (auto i = 0; i < llvm_sancov->points.size(); i++) {
-      if (llvm_sancov->points[i]) {
-        bytes[i] = 1;
-      }
-    }
+  inline size_t covered_data_size() {
+    return sizeof(llvm_sancov->points[0]);
+  }
+
+  void to_covered_data(void *data) {
+    memcpy(data, llvm_sancov->points, llvm_sancov->points.size());
   }
 };
 #endif // LLVM_COVER
@@ -318,7 +322,8 @@ public:
 
   // fuzzer feedback
   void update_is_feedback(const char *cover_name);
-  void to_covered_bytes(uint8_t *bytes);
+  size_t cover_data_size();
+  void to_cover_data(void *data);
 
 private:
   Coverage *c1, *c2;
