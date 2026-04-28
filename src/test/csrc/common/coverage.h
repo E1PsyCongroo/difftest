@@ -17,7 +17,10 @@
 #define __COVERAGE_H
 
 #include "common.h"
+#include <array>
+#include <cstdint>
 #include <string>
+#include <utility>
 #include <vector>
 #ifdef FIRRTL_COVER
 #include "firrtl-cover.h"
@@ -186,6 +189,67 @@ private:
   void display(int i);
 };
 #endif // FIRRTL_COVER
+
+#if VM_COVERAGE == 1
+class VerilatorCoverPoint {
+public:
+  std::string name;
+  uint64_t count = 0;
+  bool acc = false;
+
+  explicit VerilatorCoverPoint(std::string name, uint64_t count) : name(std::move(name)), count(count) {}
+};
+
+class VerilatorCoverGroup {
+public:
+  std::string name;
+  std::vector<VerilatorCoverPoint> points;
+
+  explicit VerilatorCoverGroup(std::string name) : name(std::move(name)) {}
+};
+
+class VerilatorCoverage : public Coverage {
+public:
+  VerilatorCoverage();
+
+  const char *get_name() {
+    return "verilator";
+  }
+  const char *get_cover_name(uint32_t i);
+  void reset();
+  void update(DiffTestState *state);
+
+  // coverage figures
+  uint32_t get_total_points();
+  uint32_t get_covered_points();
+
+  // accumulative coverage
+  void accumulate();
+  bool is_accumulated(uint32_t i);
+  uint32_t get_acc_covered_points();
+
+  void display();
+  void display_uncovered_points();
+
+  // fuzzer feedback
+  void update_is_feedback(const char *cover_name);
+  void to_covered_bytes(uint8_t *bytes);
+
+private:
+  constexpr static int N_GROUP = 2;
+  std::array<VerilatorCoverGroup, N_GROUP> cover;
+  int feedback_group = -1;
+
+  void load_from_verilator();
+  void load_from_file(const char *filename);
+  void update_group(const std::string &type, std::vector<VerilatorCoverPoint> &points);
+  VerilatorCoverGroup *get();
+  VerilatorCoverGroup *get(const std::string &type);
+  static uint32_t cover_sum(const VerilatorCoverGroup &group, bool accumulated);
+  uint32_t cover_sum(bool accumulated);
+  void display(const VerilatorCoverGroup &group);
+};
+#endif // VM_COVERAGE
 
 #ifdef LLVM_COVER
 class LLVMSanCovData {

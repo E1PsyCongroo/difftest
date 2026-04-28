@@ -18,6 +18,7 @@
 #define __DIFFSTATE_H__
 
 #include "common.h"
+#include "dut.h"
 #include <queue>
 #include <unordered_set>
 

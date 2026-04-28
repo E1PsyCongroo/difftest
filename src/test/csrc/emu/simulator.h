@@ -118,6 +118,7 @@ public:
 #ifdef VERILATOR
 #define SIMULATOR VerilatorSim
 #include "verilator.h"
+#include "verilated_cov.h"
 #endif // VERILATOR
 
 #ifdef GSIM

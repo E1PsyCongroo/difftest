@@ -46,10 +46,10 @@ VERILATOR_5_024 := $(shell expr `$(VERILATOR_VER_CMD)` \>= 5024 2> /dev/null)
 ifeq ($(VERILATOR_5_024),1)
 VERILATOR_FLAGS += --quiet-stats
 endif
-VERILATOR_5_040 := $(shell expr `$(VERILATOR_VER_CMD)` \>= 5040 2> /dev/null)
-ifeq ($(VERILATOR_5_040),1)
-VEXTRA_FLAGS += -Wno-PARAMNODEFAULT
-endif
+# VERILATOR_5_040 := $(shell expr `$(VERILATOR_VER_CMD)` \>= 5040 2> /dev/null)
+# ifeq ($(VERILATOR_5_040),1)
+# VEXTRA_FLAGS += -Wno-PARAMNODEFAULT
+# endif
 
 ifneq (,$(filter $(EMU_TRACE),1 vcd VCD))
 VERILATOR_FLAGS += --trace
@@ -73,7 +73,8 @@ VERILATOR_FLAGS += --savable
 endif
 
 ifeq ($(EMU_COVERAGE),1)
-VERILATOR_FLAGS += --coverage-line --coverage-toggle
+# VERILATOR_FLAGS += --coverage-line --coverage-toggle
+VERILATOR_FLAGS += --coverage-line
 endif
 
 # C optimization

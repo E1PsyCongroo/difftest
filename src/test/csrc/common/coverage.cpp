@@ -14,6 +14,14 @@
 ***************************************************************************************/
 
 #include "coverage.h"
+#include <fstream>
+#include <unistd.h>
+
+#if VM_COVERAGE == 1
+#include "VSimTop.h"
+#include "verilated.h"
+#include "verilated_cov.h"
+#endif // VM_COVERAGE
 
 void Coverage::display_uncovered_points() {
   printf("Uncovered %s coverage points:\n", get_name());
@@ -143,6 +151,291 @@ uint32_t FIRRTLCoverage::cover_sum(const FIRRTLCoverPoint *cover) {
   return cover_sum(cover->points, cover->total);
 }
 #endif // FIRRTL_COVER
+
+#if VM_COVERAGE == 1
+static std::string verilator_format_metadata(const std::string &metadata) {
+  std::string result;
+  for (auto c: metadata) {
+    if (c == '\001') {
+      if (!result.empty()) {
+        result += " |";
+      }
+    } else if (c == '\002') {
+      result += ": ";
+    } else {
+      result += c;
+    }
+  }
+  return result;
+}
+
+static bool verilator_parse_field(const std::string &field, std::string &key, std::string &value) {
+  auto sep = field.find('\002');
+  if (sep == std::string::npos) {
+    return false;
+  }
+  key = field.substr(0, sep);
+  value = field.substr(sep + 1);
+  return true;
+}
+
+static bool verilator_parse_line(const std::string &line, std::string &type, std::string &point_name, uint64_t &count) {
+  if (line.rfind("C '", 0) != 0) {
+    return false;
+  }
+
+  auto metadata_begin = line.find('\'');
+  if (metadata_begin == std::string::npos) {
+    return false;
+  }
+  auto metadata_end = line.find('\'', metadata_begin + 1);
+  if (metadata_end == std::string::npos) {
+    return false;
+  }
+
+  auto metadata = line.substr(metadata_begin + 1, metadata_end - metadata_begin - 1);
+  auto count_str = line.substr(metadata_end + 1);
+  try {
+    count = std::stoull(count_str);
+  } catch (...) {
+    return false;
+  }
+
+  size_t pos = 0;
+  while (pos < metadata.size()) {
+    auto next = metadata.find('\001', pos);
+    auto field = metadata.substr(pos, next == std::string::npos ? next : next - pos);
+    std::string key, value;
+    if (verilator_parse_field(field, key, value) && key == "t") {
+      type = value;
+      break;
+    }
+    if (next == std::string::npos) {
+      break;
+    }
+    pos = next + 1;
+  }
+
+  if (type.empty()) {
+    return false;
+  }
+  point_name = verilator_format_metadata(metadata);
+  return true;
+}
+
+VerilatorCoverage::VerilatorCoverage()
+    // : cover{VerilatorCoverGroup("line"), VerilatorCoverGroup("toggle"), VerilatorCoverGroup("branch")} {
+    : cover{VerilatorCoverGroup("line"), VerilatorCoverGroup("branch")} {
+  auto context = Verilated::threadContextp();
+  auto model = new VSimTop(context);
+  load_from_verilator();
+  delete model;
+  context->coveragep()->clear();
+}
+
+const char *VerilatorCoverage::get_cover_name(uint32_t i) {
+  if (auto group = get(); group && i < group->points.size()) {
+    return group->points[i].name.c_str();
+  }
+  return nullptr;
+}
+
+void VerilatorCoverage::reset() {
+  for (auto &group: cover) {
+    for (auto &point: group.points) {
+      point.count = 0;
+    }
+  }
+  Verilated::threadContextp()->coveragep()->clear();
+}
+
+void VerilatorCoverage::update(DiffTestState *state) {
+  load_from_verilator();
+}
+
+uint32_t VerilatorCoverage::get_total_points() {
+  if (auto group = get()) {
+    return group->points.size();
+  }
+  return 0;
+}
+
+uint32_t VerilatorCoverage::get_covered_points() {
+  return cover_sum(false);
+}
+
+void VerilatorCoverage::accumulate() {
+  for (auto &group: cover) {
+    for (auto &point: group.points) {
+      if (point.count) {
+        point.acc = true;
+      }
+    }
+  }
+}
+
+bool VerilatorCoverage::is_accumulated(uint32_t i) {
+  if (auto group = get(); group && i < group->points.size()) {
+    return group->points[i].acc;
+  }
+  return false;
+}
+
+uint32_t VerilatorCoverage::get_acc_covered_points() {
+  return cover_sum(true);
+}
+
+void VerilatorCoverage::display() {
+  for (const auto &group: cover) {
+    display(group);
+  }
+}
+
+void VerilatorCoverage::display_uncovered_points() {
+  for (const auto &group: cover) {
+    printf("Uncovered %s coverage points:\n", group.name.c_str());
+    for (uint32_t i = 0; i < group.points.size(); i++) {
+      if (!group.points[i].acc) {
+        printf("  [%d] %s\n", i, group.points[i].name.c_str());
+      }
+    }
+  }
+}
+
+void VerilatorCoverage::update_is_feedback(const char *cover_name) {
+  auto name_len = strlen(get_name());
+  auto cmp = cover_name_cmp(cover_name, get_name());
+  is_feedback = cmp > name_len || !cmp;
+  feedback_group = -1;
+  if (is_feedback && cover_name[name_len]) {
+    // skip the name and dot (.)
+    auto found = false;
+    auto subname = cover_name + name_len + 1;
+    for (int i = 0; i < N_GROUP; ++i) {
+      if (!cover_name_cmp(subname, cover[i].name.c_str())) {
+        feedback_group = i;
+        found = true;
+      }
+    }
+    if (!found) {
+      printf("Unknown subtype of VerilatorCoverage: %s\n", cover_name);
+      assert(0);
+    }
+  }
+}
+
+void VerilatorCoverage::to_covered_bytes(uint8_t *bytes) {
+  if (auto group = get()) {
+    for (size_t i = 0; i < group->points.size(); ++i) {
+      bytes[i] = group->points[i].count ? 1 : 0;
+    }
+  }
+}
+
+void VerilatorCoverage::load_from_verilator() {
+  char filename[] = "/tmp/verilator-coverage-XXXXXX";
+  auto fd = mkstemp(filename);
+  if (fd < 0) {
+    perror("mkstemp for Verilator coverage");
+    assert(0);
+  }
+  close(fd);
+
+  Verilated::threadContextp()->coveragep()->write(filename);
+  load_from_file(filename);
+  unlink(filename);
+}
+
+void VerilatorCoverage::load_from_file(const char *filename) {
+  std::vector<VerilatorCoverPoint> line;
+  std::vector<VerilatorCoverPoint> branch;
+  // std::vector<VerilatorCoverPoint> toggle;
+
+  std::ifstream input(filename);
+  std::string text;
+  while (std::getline(input, text)) {
+    std::string type{}, point_name{};
+    uint64_t count{0};
+    if (!verilator_parse_line(text, type, point_name, count)) {
+      continue;
+    }
+
+    if (type == "line") {
+      line.emplace_back(point_name, count);
+    }
+    // else if (type == "toggle") {
+    //   toggle.emplace_back(point_name, count);
+    // }
+    else if (type == "branch") {
+      branch.emplace_back(point_name, count);
+    } else {
+      printf("Unknown coverage type from Verilator: %s\n", type.c_str());
+      assert(0);
+    }
+  }
+
+  update_group("line", line);
+  update_group("branch", branch);
+  // update_group("toggle", toggle);
+}
+
+void VerilatorCoverage::update_group(const std::string &type, std::vector<VerilatorCoverPoint> &points) {
+  auto group = get(type);
+  assert(group);
+
+  if (!group->points.empty()) {
+    assert(group->points.size() == points.size());
+    for (size_t i = 0; i < points.size(); i++) {
+      Assert(group->points[i].name == points[i].name,
+             "Point name mismatch for Verilator coverage group %s at index %zu: %s vs %s\n", type.c_str(), i,
+             group->points[i].name.c_str(), points[i].name.c_str());
+      points[i].acc = group->points[i].acc;
+    }
+  }
+
+  group->points = std::move(points);
+}
+
+VerilatorCoverGroup *VerilatorCoverage::get() {
+  if (feedback_group < 0) {
+    return nullptr;
+  }
+  return &cover[feedback_group];
+}
+
+VerilatorCoverGroup *VerilatorCoverage::get(const std::string &type) {
+  for (auto &group: cover) {
+    if (group.name == type) {
+      return &group;
+    }
+  }
+  return nullptr;
+}
+
+uint32_t VerilatorCoverage::cover_sum(const VerilatorCoverGroup &group, bool accumulated) {
+  uint32_t result = 0;
+  for (const auto &point: group.points) {
+    result += accumulated ? point.acc : point.count != 0;
+  }
+  return result;
+}
+
+uint32_t VerilatorCoverage::cover_sum(bool accumulated) {
+  if (auto group = get()) {
+    return cover_sum(*group, accumulated);
+  }
+  return 0;
+}
+
+void VerilatorCoverage::display(const VerilatorCoverGroup &group) {
+  Coverage::display(group.name.c_str(), group.points.size(), cover_sum(group, false), cover_sum(group, true));
+  // printf("%s coverage points:\n", group.name.c_str());
+  // for (uint32_t i = 0; i < group.points.size(); i++) {
+  //   printf("  [%d] %s: %zu\n", i, group.points[i].name.c_str(), group.points[i].count);
+  // }
+}
+
+#endif // VM_COVERAGE
 
 #ifdef LLVM_COVER
 typedef struct {

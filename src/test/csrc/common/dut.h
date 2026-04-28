@@ -65,6 +65,10 @@ public:
     auto c_firrtl = new FIRRTLCoverage;
     cover.push_back(c_firrtl);
 #endif // FIRRTL_COVER
+#if VM_COVERAGE == 1
+    auto c_verilator = new VerilatorCoverage;
+    cover.push_back(c_verilator);
+#endif // VM_COVERAGE
 #ifdef LLVM_COVER
     auto c_llvm = new LLVMSanCoverage;
     cover.push_back(c_llvm);
