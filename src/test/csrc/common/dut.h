@@ -19,6 +19,8 @@
 #include "common.h"
 #include "coverage.h"
 #include "state.h"
+#include <array>
+#include <cstdio>
 #include <vector>
 
 class DUT {
@@ -49,6 +51,8 @@ public:
   std::vector<Coverage *> cover;
   // committed state sequences
   std::vector<StateTracker *> state;
+  // commited pc trace
+  std::vector<uint64_t> pc_trace;
   // simulation exit code
   SimExitCode exit_code;
 
@@ -165,6 +169,10 @@ public:
     return nullptr;
   }
 
+  // PC Trace
+  void update_pc_trace(std::vector<uint64_t> pc_trace) {
+    this->pc_trace = std::move(pc_trace);
+  }
 };
 
 extern SimStats stats;

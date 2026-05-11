@@ -18,9 +18,13 @@
 #define __DIFFSTATE_H__
 
 #include "common.h"
+#include "difftest-state.h"
 #include "dut.h"
+#include <array>
+#include <cstdint>
 #include <queue>
 #include <unordered_set>
+#include <vector>
 
 class CommitTrace {
 public:
@@ -170,10 +174,10 @@ public:
 private:
   const bool use_spike;
 
-  static const int DEBUG_GROUP_TRACE_SIZE = 16;
+  static constexpr int DEBUG_GROUP_TRACE_SIZE = 16;
   std::queue<std::pair<uint64_t, uint32_t>> retire_group_queue;
 
-  static const int DEBUG_INST_TRACE_SIZE = 32;
+  static constexpr int DEBUG_INST_TRACE_SIZE = 32;
   std::queue<CommitTrace *> commit_trace;
 
   uint64_t commit_counter = 0;
@@ -193,6 +197,9 @@ private:
       fflush(stdout);
     }
   }
+
+public:
+  std::vector<uint64_t> get_commit_pc_trace();
 };
 
 extern uint64_t get_commit_data(const DiffTestState *state, int index);

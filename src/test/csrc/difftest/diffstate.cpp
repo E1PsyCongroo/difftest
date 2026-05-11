@@ -15,7 +15,10 @@
 ***************************************************************************************/
 
 #include "diffstate.h"
+#include "common.h"
 #include "spikedasm.h"
+#include <cstdint>
+#include <vector>
 
 void CommitTrace::display(bool use_spike) {
   Info("%s pc %016lx inst %08x", get_type(), pc, inst);
@@ -46,10 +49,11 @@ void DiffState::display() {
 
   Info("\n============== Commit Instr Trace ==============\n");
   int commit_index = 0;
-  while (!commit_trace.empty()) {
-    CommitTrace *trace = commit_trace.front();
-    commit_trace.pop();
-    trace->display_line(commit_index, use_spike, commit_trace.empty());
+  auto trace_queue = commit_trace;
+  while (!trace_queue.empty()) {
+    CommitTrace *trace = trace_queue.front();
+    trace_queue.pop();
+    trace->display_line(commit_index, use_spike, trace_queue.empty());
     commit_index++;
   }
 
@@ -57,6 +61,24 @@ void DiffState::display() {
 }
 
 DiffState::DiffState(int coreid) : use_spike(spike_valid()), coreid(coreid) {}
+
+std::vector<uint64_t> DiffState::get_commit_pc_trace() {
+  uint64_t fifo_pc[DEBUG_INST_TRACE_SIZE] = {0};
+  size_t count = 0;
+  auto trace_queue = commit_trace;
+  while (!trace_queue.empty()) {
+    assert(count < DEBUG_INST_TRACE_SIZE);
+    fifo_pc[count++] = trace_queue.front()->pc;
+    trace_queue.pop();
+  }
+
+  std::vector<uint64_t> pc_trace(count);
+  for (size_t i = 0; i < count; i++) {
+    pc_trace[i] = fifo_pc[count - 1 - i];
+  }
+
+  return pc_trace;
+}
 
 static uint64_t get_int_data(const DiffTestState *state, int index) {
 #ifdef CONFIG_DIFFTEST_PHYINTREGSTATE

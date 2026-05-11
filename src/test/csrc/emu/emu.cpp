@@ -247,6 +247,7 @@ Emulator::~Emulator() {
 
 #ifndef CONFIG_NO_DIFFTEST
   stats.update_cover(difftest[0]->dut);
+  stats.update_pc_trace(difftest[0]->get_commit_pc_trace());
 #endif // CONFIG_NO_DIFFTEST
 
   simMemory->display_stats();

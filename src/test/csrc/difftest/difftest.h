@@ -21,8 +21,8 @@
 #include "common.h"
 #include "diffstate.h"
 #include "difftrace.h"
-#include "dut.h"
 #include "golden.h"
+#include "dut.h"
 #include "refproxy.h"
 #include <queue>
 #include <vector>
@@ -155,6 +155,10 @@ public:
 
   bool get_commit_trace() {
     return state->dump_commit_trace;
+  }
+
+  std::vector<uint64_t> get_commit_pc_trace() {
+    return state->get_commit_pc_trace();
   }
 
   void warmup_record() {

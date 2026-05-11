@@ -14,6 +14,10 @@
 ***************************************************************************************/
 
 #include "dut.h"
+#include <cstdint>
+#ifndef CONFIG_NO_DIFFTEST
+#include "difftest.h"
+#endif
 
 SimStats stats;
 
@@ -78,3 +82,11 @@ extern "C" void set_state_feedback(const char *name) {
   stats.set_feedback_state(name);
 }
 
+// PC Trace
+extern "C" size_t get_pc_trace_size() {
+  return stats.pc_trace.size();
+}
+
+extern "C" void update_stats_pc_trace(uint64_t *pc_trace) {
+  memcpy(pc_trace, stats.pc_trace.data(), sizeof(uint64_t) * stats.pc_trace.size());
+}
