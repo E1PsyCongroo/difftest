@@ -26,6 +26,9 @@
 
 class Emulator final : public DUT {
 private:
+#ifdef VERILATOR
+  VerilatedContext *context;
+#endif
   Simulator *dut_ptr;
 
   bool force_dump_wave = false;

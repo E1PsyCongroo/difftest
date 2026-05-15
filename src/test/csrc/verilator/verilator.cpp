@@ -20,6 +20,7 @@
 #include "simulator.h"
 
 VerilatorSim::VerilatorSim() : dut(new VSimTop) {}
+VerilatorSim::VerilatorSim(VerilatedContext* context) : dut(new VSimTop(context)) {}
 
 VerilatorSim::~VerilatorSim() {
 #if VM_TRACE == 1

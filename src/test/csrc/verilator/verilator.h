@@ -52,6 +52,7 @@ protected:
 
 public:
   VerilatorSim();
+  VerilatorSim(VerilatedContext *context);
   ~VerilatorSim();
 
   inline void set_clock(unsigned clock) override {

@@ -28,7 +28,7 @@ public:
   virtual const char *get_name() const = 0;
   virtual size_t get_state_size() const = 0;
   virtual void reset() = 0;
-  virtual void update(DiffTestState *state) = 0;
+  virtual void update(const DiffTestState *state) = 0;
 
   // tracker figures
   virtual uint32_t get_total_states() const = 0;
@@ -65,7 +65,7 @@ public:
   const char *get_name() const final;
   size_t get_state_size() const final;
   void reset() final;
-  void update(DiffTestState *state) final;
+  void update(const DiffTestState *state) final;
 
   uint32_t get_total_states() const final;
   void* get_state_data(uint32_t i) final;

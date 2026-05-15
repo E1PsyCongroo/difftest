@@ -104,7 +104,7 @@ public:
   }
 
   // Coverage
-  void update_cover(DiffTestState *state) {
+  void update_cover(const DiffTestState *state) {
     for (auto cov: cover) {
       cov->update(state);
     }
@@ -147,7 +147,7 @@ public:
   }
 
   // StateTracker
-  void update_state(DiffTestState *state) {
+  void update_state(const DiffTestState *state) {
     for (auto s: this->state) {
       s->update(state);
     }

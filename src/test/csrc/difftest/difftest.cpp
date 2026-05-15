@@ -462,7 +462,6 @@ inline int Difftest::check_all() {
 #endif
     for (int i = 0; i < CONFIG_DIFF_COMMIT_WIDTH; i++) {
       if (dut->commit[i].valid) {
-        stats.update_state(dut);
         num_commit += 1 + dut->commit[i].nFused;
         if (int ret = instr_commit_checker[i]->step()) {
           return ret;

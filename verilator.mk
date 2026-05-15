@@ -74,7 +74,7 @@ endif
 
 ifeq ($(EMU_COVERAGE),1)
 # VERILATOR_FLAGS += --coverage-line --coverage-toggle
-VERILATOR_FLAGS += --coverage-line
+VERILATOR_FLAGS += --coverage-line --coverage-expr
 endif
 
 # C optimization

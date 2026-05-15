@@ -22,6 +22,8 @@
 #include "ram.h"
 #include "remote_bitbang.h"
 #include "sdcard.h"
+#include "simulator.h"
+#include "verilated.h"
 #include <getopt.h>
 #include <signal.h>
 #include <sys/resource.h>
@@ -46,7 +48,7 @@
 extern remote_bitbang_t *jtag;
 
 Emulator::Emulator(int argc, const char *argv[])
-    : dut_ptr(new SIMULATOR), cycles(0), trapCode(STATE_RUNNING), elapsed_time(uptime()) {
+    : cycles(0), trapCode(STATE_RUNNING), elapsed_time(uptime()) {
 
 #ifdef VERILATOR
 #if !defined(VERILATOR_VERSION_INTEGER) || VERILATOR_VERSION_INTEGER < 5026000
@@ -65,8 +67,11 @@ Emulator::Emulator(int argc, const char *argv[])
 
   args = parse_args(argc, argv);
 #ifdef VERILATOR
+  context = new VerilatedContext;
+  Verilated::threadContextp(context);
   Verilated::commandArgs(argc, argv); // Prepare extra args for TLMonitor
 #endif
+  dut_ptr = new SIMULATOR;
 
 #ifdef ENABLE_CONSTANTIN
   void constantinLoad();
@@ -286,6 +291,10 @@ Emulator::~Emulator() {
   }
 
   delete dut_ptr;
+#ifdef VERILATOR
+  Verilated::threadContextp(nullptr);
+  delete context;
+#endif
 }
 
 inline void Emulator::reset_ncycles(size_t cycles) {

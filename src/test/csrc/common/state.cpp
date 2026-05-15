@@ -34,7 +34,7 @@ void ArchIntRegStateTracker::reset() {
   tracker.clear();
 }
 
-void ArchIntRegStateTracker::update(DiffTestState *state) {
+void ArchIntRegStateTracker::update(const DiffTestState *state) {
   tracker.push_back(state->regs.xrf);
 }
 

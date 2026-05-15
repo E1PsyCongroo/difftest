@@ -36,7 +36,7 @@ public:
     return "unknown";
   }
   virtual void reset() = 0;
-  virtual void update(DiffTestState *state) {}
+  virtual void update(const DiffTestState *state) {}
 
   // coverage figures
   virtual uint32_t get_total_points() = 0;
@@ -220,7 +220,7 @@ public:
   }
   const char *get_cover_name(uint32_t i);
   void reset();
-  void update(DiffTestState *state);
+  void update(const DiffTestState *state);
 
   // coverage figures
   uint32_t get_total_points();
@@ -240,8 +240,7 @@ public:
   void to_cover_data(void *data);
 
 private:
-  constexpr static int N_GROUP = 2;
-  std::array<VerilatorCoverGroup, N_GROUP> cover;
+  std::vector<VerilatorCoverGroup> cover;
   int feedback_group = -1;
 
   void load_from_verilator();

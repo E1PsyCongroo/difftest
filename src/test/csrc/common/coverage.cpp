@@ -14,6 +14,8 @@
 ***************************************************************************************/
 
 #include "coverage.h"
+#include <cstddef>
+#include <cstdio>
 #include <fstream>
 #include <unistd.h>
 
@@ -241,13 +243,14 @@ static bool verilator_parse_line(const std::string &line, std::string &type, std
 }
 
 VerilatorCoverage::VerilatorCoverage()
-    // : cover{VerilatorCoverGroup("line"), VerilatorCoverGroup("toggle"), VerilatorCoverGroup("branch")} {
-    : cover{VerilatorCoverGroup("line"), VerilatorCoverGroup("branch")} {
-  auto context = Verilated::threadContextp();
+    : cover{VerilatorCoverGroup("line"), VerilatorCoverGroup("branch"), VerilatorCoverGroup("expr")} {
+  auto context = new VerilatedContext;
+  Verilated::threadContextp(context);
   auto model = new VSimTop(context);
   load_from_verilator();
   delete model;
-  context->coveragep()->clear();
+  Verilated::threadContextp(nullptr);
+  delete context;
 }
 
 const char *VerilatorCoverage::get_cover_name(uint32_t i) {
@@ -266,7 +269,7 @@ void VerilatorCoverage::reset() {
   Verilated::threadContextp()->coveragep()->clear();
 }
 
-void VerilatorCoverage::update(DiffTestState *state) {
+void VerilatorCoverage::update(const DiffTestState *state) {
   load_from_verilator();
 }
 
@@ -328,7 +331,7 @@ void VerilatorCoverage::update_is_feedback(const char *cover_name) {
     // skip the name and dot (.)
     auto found = false;
     auto subname = cover_name + name_len + 1;
-    for (int i = 0; i < N_GROUP; ++i) {
+    for (int i = 0; i < cover.size(); ++i) {
       if (!cover_name_cmp(subname, cover[i].name.c_str())) {
         feedback_group = i;
         found = true;
@@ -347,6 +350,13 @@ void VerilatorCoverage::to_cover_data(void *data) {
     for (size_t i = 0; i < group->points.size(); ++i) {
       ((uint64_t *)data)[i] = group->points[i].count;
     }
+
+    // printf("[DIFFTEST DEBUG]: cover points of %s:\n", group->name.c_str());
+    // for (uint32_t i = 0; i < group->points.size(); ++i) {
+    //   printf("[%d]: %zd\n", i, group->points[i].count);
+    // }
+    // fflush(stdout);
+
   }
 }
 
@@ -364,7 +374,7 @@ void VerilatorCoverage::load_from_verilator() {
 void VerilatorCoverage::load_from_file(const char *filename) {
   std::vector<VerilatorCoverPoint> line;
   std::vector<VerilatorCoverPoint> branch;
-  // std::vector<VerilatorCoverPoint> toggle;
+  std::vector<VerilatorCoverPoint> expr;
 
   std::ifstream input(filename);
   std::string text;
@@ -378,9 +388,9 @@ void VerilatorCoverage::load_from_file(const char *filename) {
     if (type == "line") {
       line.emplace_back(point_name, count);
     }
-    // else if (type == "toggle") {
-    //   toggle.emplace_back(point_name, count);
-    // }
+    else if (type == "expr") {
+      expr.emplace_back(point_name, count);
+    }
     else if (type == "branch") {
       branch.emplace_back(point_name, count);
     } else {
@@ -391,7 +401,7 @@ void VerilatorCoverage::load_from_file(const char *filename) {
 
   update_group("line", line);
   update_group("branch", branch);
-  // update_group("toggle", toggle);
+  update_group("expr", expr);
 }
 
 void VerilatorCoverage::update_group(const std::string &type, std::vector<VerilatorCoverPoint> &points) {
@@ -443,7 +453,7 @@ uint32_t VerilatorCoverage::cover_sum(bool accumulated) {
 }
 
 void VerilatorCoverage::display(const VerilatorCoverGroup &group) {
-  Coverage::display(group.name.c_str(), group.points.size(), cover_sum(group, false), cover_sum(group, true));
+  Coverage::display(("verilator." + group.name).c_str(), group.points.size(), cover_sum(group, false), cover_sum(group, true));
   // printf("%s coverage points:\n", group.name.c_str());
   // for (uint32_t i = 0; i < group.points.size(); i++) {
   //   printf("  [%d] %s: %zu\n", i, group.points[i].name.c_str(), group.points[i].count);

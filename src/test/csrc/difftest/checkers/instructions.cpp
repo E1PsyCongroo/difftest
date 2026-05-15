@@ -15,6 +15,7 @@
 ***************************************************************************************/
 
 #include "checkers.h"
+#include "dut.h"
 #include "flash.h"
 #include "ram.h"
 
@@ -111,6 +112,8 @@ int InstrCommitChecker::check(const DifftestInstrCommit &probe) {
   state->record_inst(commit_pc, commit_instr, (probe.rfwen | probe.fpwen | probe.vecwen), probe.wdest, commit_data,
                      probe.skip != 0, probe.special & 0x1, probe.lqIdx, probe.sqIdx, probe.robIdx, probe.isLoad,
                      probe.isStore);
+
+  stats.update_state(&dut);
 
 #ifdef FUZZING
   // isExit
