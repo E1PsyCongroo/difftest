@@ -19,7 +19,6 @@
 #include "common.h"
 #include "coverage.h"
 #include "state.h"
-#include <array>
 #include <cstdio>
 #include <vector>
 
@@ -51,8 +50,6 @@ public:
   std::vector<Coverage *> cover;
   // committed state sequences
   std::vector<StateTracker *> state;
-  // commited pc trace
-  std::vector<uint64_t> pc_trace;
   // simulation exit code
   SimExitCode exit_code;
 
@@ -77,10 +74,12 @@ public:
     auto c_llvm = new LLVMSanCoverage;
     cover.push_back(c_llvm);
 #endif // LLVM_COVER
-#ifdef CONFIG_STATE_ARCHINTREG
-    auto s_archint = new ArchIntRegStateTracker;
-    state.push_back(s_archint);
-#endif // CONFIG_STATE_ARCHINTREG
+    auto s_pc = new PCStateTracker;
+    auto s_int = new ArchIntRegStateTracker;
+    auto s_csr = new CSRStateTracker;
+    state.push_back(s_pc);
+    state.push_back(s_int);
+    state.push_back(s_csr);
 
     // #if defined(CONFIG_DIFFTEST_INSTRCOVER) && defined(FIRRTL_COVER)
     //     auto c_union_instr_firrtl = new UnionCoverage(c_instr, c_firrtl);
@@ -169,10 +168,6 @@ public:
     return nullptr;
   }
 
-  // PC Trace
-  void update_pc_trace(std::vector<uint64_t> pc_trace) {
-    this->pc_trace = std::move(pc_trace);
-  }
 };
 
 extern SimStats stats;

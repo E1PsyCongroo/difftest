@@ -157,10 +157,6 @@ public:
     return state->dump_commit_trace;
   }
 
-  std::vector<uint64_t> get_commit_pc_trace() {
-    return state->get_commit_pc_trace();
-  }
-
   void warmup_record() {
     auto trap = get_trap_event();
     warmup_info.instrCnt = trap->instrCnt;

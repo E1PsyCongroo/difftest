@@ -15,6 +15,7 @@
 ***************************************************************************************/
 
 #include "checkers.h"
+#include "difftest-state.h"
 
 enum {
   EX_IAM,       // instruction address misaligned
@@ -55,6 +56,11 @@ void ArchEventChecker::clear_valid(DifftestArchEvent &probe) {
 int ArchEventChecker::check(const DifftestArchEvent &probe) {
   // interrupt has a higher priority than exception
   // TODO: we should ensure they don't happen at the same time
+  auto dut = new DiffTestState;
+  dut->regs = get_regs();
+  dut->commit->pc = probe.exceptionPC;
+  stats.update_state(dut);
+  delete dut;
   if (probe.interrupt) {
     return do_interrupt(probe);
   } else {

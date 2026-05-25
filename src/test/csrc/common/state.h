@@ -18,6 +18,7 @@
 
 #include "common.h"
 #include <cstddef>
+#include <cstdint>
 #include <vector>
 
 class StateTracker{
@@ -26,14 +27,12 @@ public:
   virtual ~StateTracker() = default;
 
   virtual const char *get_name() const = 0;
-  virtual size_t get_state_size() const = 0;
   virtual void reset() = 0;
   virtual void update(const DiffTestState *state) = 0;
 
   // tracker figures
-  virtual uint32_t get_total_states() const = 0;
-  virtual void* get_state_data(uint32_t i) = 0;
-  virtual const void* get_state_data(uint32_t i) const = 0;
+  virtual uint64_t get_total_states() = 0;
+  virtual void* get_state_data(uint64_t i) = 0;
 
   // fuzzer feedback
   bool is_feedback = false;
@@ -55,26 +54,62 @@ protected:
   }
 };
 
-#if defined(CONFIG_DIFFTEST_ARCHINTREGSTATE) && defined(CONFIG_DIFFTEST_INSTRCOMMIT)
-#define CONFIG_STATE_ARCHINTREG
+class PCStateTracker : public StateTracker {
+public:
+  PCStateTracker();
+  ~PCStateTracker() = default;
+
+  const char *get_name() const {
+    return "PCState";
+  }
+  void reset() final;
+  void update(const DiffTestState *state) final;
+
+  uint64_t get_total_states() final;
+  void* get_state_data(uint64_t i) final;
+
+  void to_state_bytes(void *bytes) final;
+private:
+  std::vector<uint64_t> tracker;
+};
+
 class ArchIntRegStateTracker : public StateTracker {
 public:
   ArchIntRegStateTracker();
   ~ArchIntRegStateTracker() = default;
 
-  const char *get_name() const final;
-  size_t get_state_size() const final;
+  const char *get_name() const {
+    return "ArchIntRegState";
+  }
   void reset() final;
   void update(const DiffTestState *state) final;
 
-  uint32_t get_total_states() const final;
-  void* get_state_data(uint32_t i) final;
-  const void* get_state_data(uint32_t i) const final;
+  uint64_t get_total_states() final;
+  void* get_state_data(uint64_t i) final;
 
   void to_state_bytes(void *bytes) final;
 private:
   std::vector<DifftestArchIntRegState> tracker;
 };
-#endif // CONFIG_DIFFTEST_ARCHINTREGSTATE && CONFIG_DIFFTEST_INSTRCOMMIT
+
+class CSRStateTracker : public StateTracker {
+public:
+  CSRStateTracker();
+  ~CSRStateTracker() = default;
+
+  const char *get_name() const {
+    return "CSRState";
+  }
+  void reset() final;
+  void update(const DiffTestState *state) final;
+
+  uint64_t get_total_states() final;
+  void* get_state_data(uint64_t i) final;
+
+  void to_state_bytes(void *bytes) final;
+private:
+  std::vector<DifftestCSRState> tracker;
+};
+
 
 #endif // __STATE_H

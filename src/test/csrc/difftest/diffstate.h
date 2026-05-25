@@ -198,8 +198,6 @@ private:
     }
   }
 
-public:
-  std::vector<uint64_t> get_commit_pc_trace();
 };
 
 extern uint64_t get_commit_data(const DiffTestState *state, int index);

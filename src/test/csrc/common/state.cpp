@@ -14,20 +14,37 @@
 ***************************************************************************************/
 
 #include "state.h"
+#include "difftest-state.h"
 #include "refproxy.h"
+#include <cstdint>
 
-#ifdef CONFIG_STATE_ARCHINTREG
-
-ArchIntRegStateTracker::ArchIntRegStateTracker() {
+PCStateTracker::PCStateTracker() {
   reset();
 }
 
-const char *ArchIntRegStateTracker::get_name() const {
-  return "ArchIntRegState";
+void PCStateTracker::reset() {
+  tracker.clear();
 }
 
-size_t ArchIntRegStateTracker::get_state_size() const {
-  return sizeof(tracker[0]);
+void PCStateTracker::update(const DiffTestState *state) {
+  tracker.push_back(state->commit->pc);
+}
+
+uint64_t PCStateTracker::get_total_states(){
+  return tracker.size();
+}
+
+void *PCStateTracker::get_state_data(uint64_t i) {
+  return &tracker[i];
+}
+
+void PCStateTracker::to_state_bytes(void *bytes) {
+  memcpy(bytes, tracker.data(), tracker.size() * sizeof(uint64_t));
+}
+
+
+ArchIntRegStateTracker::ArchIntRegStateTracker() {
+  reset();
 }
 
 void ArchIntRegStateTracker::reset() {
@@ -38,20 +55,38 @@ void ArchIntRegStateTracker::update(const DiffTestState *state) {
   tracker.push_back(state->regs.xrf);
 }
 
-uint32_t ArchIntRegStateTracker::get_total_states() const {
+uint64_t ArchIntRegStateTracker::get_total_states(){
   return tracker.size();
 }
 
-void *ArchIntRegStateTracker::get_state_data(uint32_t i) {
-  return (void *)&tracker[i];
-}
-
-const void *ArchIntRegStateTracker::get_state_data(uint32_t i) const {
-  return (const void *)&tracker[i];
+void *ArchIntRegStateTracker::get_state_data(uint64_t i) {
+  return &tracker[i];
 }
 
 void ArchIntRegStateTracker::to_state_bytes(void *bytes) {
-  memcpy(bytes, tracker.data(), tracker.size() * get_state_size());
+  memcpy(bytes, tracker.data(), tracker.size() * sizeof(DifftestArchIntRegState));
 }
 
-#endif // CONFIG_STATE_ARCHINTREG
+CSRStateTracker::CSRStateTracker() {
+  reset();
+}
+
+void CSRStateTracker::reset() {
+  tracker.clear();
+}
+
+void CSRStateTracker::update(const DiffTestState *state) {
+  tracker.push_back(state->regs.csr);
+}
+
+uint64_t CSRStateTracker::get_total_states(){
+  return tracker.size();
+}
+
+void *CSRStateTracker::get_state_data(uint64_t i) {
+  return &tracker[i];
+}
+
+void CSRStateTracker::to_state_bytes(void *bytes) {
+  memcpy(bytes, tracker.data(), tracker.size() * sizeof(DifftestCSRState));
+}

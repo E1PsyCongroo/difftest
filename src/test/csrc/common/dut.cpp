@@ -65,28 +65,12 @@ extern "C" size_t get_state_number() {
   return 0;
 }
 
-extern "C" size_t get_state_size() {
-  if (auto s = stats.get_feedback_state()) {
-    return s->get_state_size();
-  }
-  return 0;
-}
-
-extern "C" void update_stats_state(void *state_tracker) {
+extern "C" void update_stats_state(void *state_data) {
   if (auto c = stats.get_feedback_state()) {
-    c->to_state_bytes(state_tracker);
+    c->to_state_bytes(state_data);
   }
 }
 
 extern "C" void set_state_feedback(const char *name) {
   stats.set_feedback_state(name);
-}
-
-// PC Trace
-extern "C" size_t get_pc_trace_size() {
-  return stats.pc_trace.size();
-}
-
-extern "C" void update_stats_pc_trace(uint64_t *pc_trace) {
-  memcpy(pc_trace, stats.pc_trace.data(), sizeof(uint64_t) * stats.pc_trace.size());
 }

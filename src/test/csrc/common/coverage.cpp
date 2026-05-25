@@ -128,12 +128,13 @@ void FIRRTLCoverage::update_is_feedback(const char *cover_name) {
 }
 
 size_t FIRRTLCoverage::cover_data_size() {
+  auto target = get();
   return sizeof(target->points[0]);
 }
 
 void FIRRTLCoverage::to_cover_data(void *data) {
   auto target = get();
-  memcpy(bytes, target->points, target->total);
+  memcpy(data, target->points, target->total);
 }
 
 const FIRRTLCoverPoint *FIRRTLCoverage::get() {
