@@ -14,15 +14,20 @@
 ***************************************************************************************/
 
 #include "coverage.h"
+#include <charconv>
 #include <cstddef>
 #include <cstdio>
 #include <fstream>
+#include <optional>
+#include <string>
+#include <string_view>
 #include <unistd.h>
 
 #if VM_COVERAGE == 1
 #include "VSimTop.h"
 #include "verilated.h"
 #include "verilated_cov.h"
+#include "verilated_cov_key.h"
 #endif // VM_COVERAGE
 
 void Coverage::display_uncovered_points() {
@@ -160,98 +165,85 @@ uint32_t FIRRTLCoverage::cover_sum(const FIRRTLCoverPoint *cover) {
 #endif // FIRRTL_COVER
 
 #if VM_COVERAGE == 1
-static void verilator_append_point_field(std::string &result, const char *key, const std::string &value) {
-  if (value.empty()) {
-    return;
-  }
-  if (!result.empty()) {
-    result += ", ";
-  }
-  result += key;
-  result += ": ";
-  result += value;
-}
-
-static std::string verilator_format_point_name(const std::string &file, const std::string &line,
-                                               const std::string &col) {
-  std::string result;
-  verilator_append_point_field(result, "f", file);
-  verilator_append_point_field(result, "l", line);
-  verilator_append_point_field(result, "n", col);
-  return result;
-}
-
-static bool verilator_parse_field(const std::string &field, std::string &key, std::string &value) {
+static std::optional<std::pair<std::string_view, std::string_view>>
+verilator_coverage_parse_field(const std::string_view field) {
   auto sep = field.find('\002');
-  if (sep == std::string::npos) {
-    return false;
+  if (sep == std::string_view::npos) {
+    return std::nullopt;
   }
-  key = field.substr(0, sep);
-  value = field.substr(sep + 1);
-  return true;
+  return std::pair{
+    field.substr(0, sep),
+    field.substr(sep + 1),
+  };
 }
 
-static bool verilator_parse_line(const std::string &line, std::string &type, std::string &point_name, uint64_t &count) {
+static std::optional<VerilatorCoverPoint> verilator_coverage_parse_line(const std::string_view line) {
   if (line.rfind("C '", 0) != 0) {
-    return false;
+    return std::nullopt;
   }
 
   auto metadata_begin = line.find('\'');
-  if (metadata_begin == std::string::npos) {
-    return false;
+  if (metadata_begin == std::string_view::npos) {
+    return std::nullopt;
   }
   auto metadata_end = line.find('\'', metadata_begin + 1);
-  if (metadata_end == std::string::npos) {
-    return false;
+  if (metadata_end == std::string_view::npos) {
+    return std::nullopt;
   }
 
+  VerilatorCoverPoint cover_point{};
   auto metadata = line.substr(metadata_begin + 1, metadata_end - metadata_begin - 1);
   auto count_str = line.substr(metadata_end + 1);
-  try {
-    count = std::stoull(count_str);
-  } catch (...) {
-    return false;
+  while (!count_str.empty() && std::isspace(count_str.front())) {
+    count_str.remove_prefix(1);
+  }
+  while (!count_str.empty() && std::isspace(count_str.back())) {
+    count_str.remove_suffix(1);
+  }
+  if (auto [ptr, ec] = std::from_chars(count_str.data(), count_str.data() + count_str.size(), cover_point.count);
+      ptr != count_str.data() + count_str.size() || ec != std::errc()) {
+    return std::nullopt;
   }
 
   size_t pos = 0;
-  std::string file, lineno, column;
   while (pos < metadata.size()) {
     auto next = metadata.find('\001', pos);
-    auto field = metadata.substr(pos, next == std::string::npos ? next : next - pos);
-    std::string key, value;
-    if (verilator_parse_field(field, key, value)) {
-      if (key == "t") {
-        type = value;
-      } else if (key == "f") {
-        file = value;
-      } else if (key == "l") {
-        lineno = value;
-      } else if (key == "n") {
-        column = value;
+    auto field = metadata.substr(pos, next == std::string_view::npos ? next : next - pos);
+    if (auto parsed = verilator_coverage_parse_field(field)) {
+      auto [key, value] = parsed.value();
+      if (key == VL_CIK_FILENAME) {
+        cover_point.filename = value;
+      } else if (key == VL_CIK_LINENO) {
+        cover_point.lineno = value;
+      } else if (key == VL_CIK_COLUMN) {
+        cover_point.column = value;
+      } else if (key == VL_CIK_TYPE) {
+        cover_point.type = value;
+      } else if (key == VL_CIK_LINESCOV) {
+        cover_point.linescov = value;
+      } else if (key == VL_CIK_COMMENT) {
+        cover_point.comment = value;
+      } else if (key == VL_CIK_HIER) {
+        cover_point.hier = value;
       }
     }
-    if (next == std::string::npos) {
+    if (next == std::string_view::npos) {
       break;
     }
     pos = next + 1;
   }
 
-  if (type.empty()) {
-    return false;
+  if (cover_point.type.empty()) {
+    return std::nullopt;
   }
-  point_name = verilator_format_point_name(file, lineno, column);
-  return true;
+
+  cover_point.gen_name();
+  return cover_point;
 }
 
 VerilatorCoverage::VerilatorCoverage()
-    : cover{VerilatorCoverGroup("line"), VerilatorCoverGroup("branch"), VerilatorCoverGroup("expr")} {
-  auto context = new VerilatedContext;
-  Verilated::threadContextp(context);
-  auto model = new VSimTop(context);
-  load_from_verilator();
-  delete model;
-  Verilated::threadContextp(nullptr);
-  delete context;
+    : cover{VerilatorCoverGroup("line"), VerilatorCoverGroup("branch"), VerilatorCoverGroup("expr"),
+            VerilatorCoverGroup("toggle")} {
 }
 
 const char *VerilatorCoverage::get_cover_name(uint32_t i) {
@@ -288,9 +280,7 @@ uint32_t VerilatorCoverage::get_covered_points() {
 void VerilatorCoverage::accumulate() {
   for (auto &group: cover) {
     for (auto &point: group.points) {
-      if (point.count) {
-        point.acc = true;
-      }
+      point.acc |= point.count;
     }
   }
 }
@@ -351,13 +341,6 @@ void VerilatorCoverage::to_cover_data(void *data) {
     for (size_t i = 0; i < group->points.size(); ++i) {
       ((uint64_t *)data)[i] = group->points[i].count;
     }
-
-    // printf("[DIFFTEST DEBUG]: cover points of %s:\n", group->name.c_str());
-    // for (uint32_t i = 0; i < group->points.size(); ++i) {
-    //   printf("[%d]: %zd\n", i, group->points[i].count);
-    // }
-    // fflush(stdout);
-
   }
 }
 
@@ -373,27 +356,28 @@ void VerilatorCoverage::load_from_verilator() {
 }
 
 void VerilatorCoverage::load_from_file(const char *filename) {
-  std::vector<VerilatorCoverPoint> line;
-  std::vector<VerilatorCoverPoint> branch;
-  std::vector<VerilatorCoverPoint> expr;
+  std::vector<VerilatorCoverPoint> line{};
+  std::vector<VerilatorCoverPoint> branch{};
+  std::vector<VerilatorCoverPoint> expr{};
+  std::vector<VerilatorCoverPoint> toggle{};
 
   std::ifstream input(filename);
   std::string text;
   while (std::getline(input, text)) {
     std::string type{}, point_name{};
-    uint64_t count{0};
-    if (!verilator_parse_line(text, type, point_name, count)) {
+    auto cover_point = verilator_coverage_parse_line(text);
+    if (!cover_point) {
       continue;
     }
 
-    if (type == "line") {
-      line.emplace_back(point_name, count);
-    }
-    else if (type == "expr") {
-      expr.emplace_back(point_name, count);
-    }
-    else if (type == "branch") {
-      branch.emplace_back(point_name, count);
+    if (cover_point->type == "line") {
+      line.emplace_back(cover_point.value());
+    } else if (cover_point->type == "expr") {
+      expr.emplace_back(cover_point.value());
+    } else if (cover_point->type == "branch") {
+      branch.emplace_back(cover_point.value());
+    } else if (cover_point->type == "toggle") {
+      toggle.emplace_back(cover_point.value());
     } else {
       printf("Unknown coverage type from Verilator: %s\n", type.c_str());
       assert(0);
@@ -403,6 +387,7 @@ void VerilatorCoverage::load_from_file(const char *filename) {
   update_group("line", line);
   update_group("branch", branch);
   update_group("expr", expr);
+  update_group("toggle", toggle);
 }
 
 void VerilatorCoverage::update_group(const std::string &type, std::vector<VerilatorCoverPoint> &points) {
@@ -454,11 +439,8 @@ uint32_t VerilatorCoverage::cover_sum(bool accumulated) {
 }
 
 void VerilatorCoverage::display(const VerilatorCoverGroup &group) {
-  Coverage::display(("verilator." + group.name).c_str(), group.points.size(), cover_sum(group, false), cover_sum(group, true));
-  // printf("%s coverage points:\n", group.name.c_str());
-  // for (uint32_t i = 0; i < group.points.size(); i++) {
-  //   printf("  [%d] %s: %zu\n", i, group.points[i].name.c_str(), group.points[i].count);
-  // }
+  Coverage::display(("verilator." + group.name).c_str(), group.points.size(), cover_sum(group, false),
+                    cover_sum(group, true));
 }
 
 #endif // VM_COVERAGE

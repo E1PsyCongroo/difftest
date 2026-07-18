@@ -46,8 +46,8 @@ int main(int argc, const char *argv[]) {
 
 #ifdef FUZZER_LIB
   stats.accumulate();
-#endif
   stats.display();
+#endif
 
   common_finish();
 

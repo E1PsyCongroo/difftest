@@ -274,6 +274,16 @@ FUZZER_LIB   = $(shell echo $$$(XFUZZ_HOME_VAR))/target/release/libfuzzer.a
 SIM_LDFLAGS += -lrt -lpthread
 endif
 
+# Check if SBFL is set
+ifeq ($(SBFL), 1)
+SBFL_HOME_VAR = SBFL_HOME
+ifeq ($(origin $(SBFL_HOME_VAR)), undefined)
+$(error $(SBFL_HOME_VAR) is not set)
+endif
+FUZZER_LIB   = $(shell echo $$$(SBFL_HOME_VAR))/target/release/libcpusbfl.so
+SIM_LDFLAGS += -lrt -lpthread
+endif
+
 # Link fuzzer libraries
 ifneq ($(FUZZER_LIB), )
 SIM_CXXFLAGS += -DFUZZER_LIB

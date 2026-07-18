@@ -18,9 +18,7 @@
 #include "refproxy.h"
 #include <cstdint>
 
-PCStateTracker::PCStateTracker() {
-  reset();
-}
+PCStateTracker::PCStateTracker() : tracker{} {}
 
 void PCStateTracker::reset() {
   tracker.clear();
@@ -30,7 +28,7 @@ void PCStateTracker::update(const DiffTestState *state) {
   tracker.push_back(state->commit->pc);
 }
 
-uint64_t PCStateTracker::get_total_states(){
+uint64_t PCStateTracker::get_total_states() {
   return tracker.size();
 }
 
@@ -42,10 +40,7 @@ void PCStateTracker::to_state_bytes(void *bytes) {
   memcpy(bytes, tracker.data(), tracker.size() * sizeof(uint64_t));
 }
 
-
-ArchIntRegStateTracker::ArchIntRegStateTracker() {
-  reset();
-}
+ArchIntRegStateTracker::ArchIntRegStateTracker() : tracker{} {}
 
 void ArchIntRegStateTracker::reset() {
   tracker.clear();
@@ -55,7 +50,7 @@ void ArchIntRegStateTracker::update(const DiffTestState *state) {
   tracker.push_back(state->regs.xrf);
 }
 
-uint64_t ArchIntRegStateTracker::get_total_states(){
+uint64_t ArchIntRegStateTracker::get_total_states() {
   return tracker.size();
 }
 
@@ -79,7 +74,7 @@ void CSRStateTracker::update(const DiffTestState *state) {
   tracker.push_back(state->regs.csr);
 }
 
-uint64_t CSRStateTracker::get_total_states(){
+uint64_t CSRStateTracker::get_total_states() {
   return tracker.size();
 }
 

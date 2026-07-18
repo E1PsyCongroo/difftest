@@ -113,7 +113,7 @@ public:
     for (auto cov: cover) {
       cov->display();
     }
-    // simstats_display("ExitCode: %d\n", (int)exit_code);
+    simstats_display("ExitCode: %d\n", (int)exit_code);
   }
 
   void display_uncovered_points() {
@@ -167,7 +167,6 @@ public:
     printf("Failed to find any feedback state sequence.\n");
     return nullptr;
   }
-
 };
 
 extern SimStats stats;

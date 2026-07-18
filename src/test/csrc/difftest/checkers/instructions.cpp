@@ -99,6 +99,12 @@ void InstrCommitChecker::clear_valid(DifftestInstrCommit &probe) {
 }
 
 int InstrCommitChecker::check(const DifftestInstrCommit &probe) {
+  DiffTestState cur_state{};
+  cur_state.regs.xrf = proxy->state.xrf;
+  cur_state.regs.csr = proxy->state.csr;
+  cur_state.commit->pc = proxy->state.pc;
+  stats.update_state(&cur_state);
+
   const auto &dut = get_dut_state();
 
   // store the writeback info to debug array
@@ -112,8 +118,6 @@ int InstrCommitChecker::check(const DifftestInstrCommit &probe) {
   state->record_inst(commit_pc, commit_instr, (probe.rfwen | probe.fpwen | probe.vecwen), probe.wdest, commit_data,
                      probe.skip != 0, probe.special & 0x1, probe.lqIdx, probe.sqIdx, probe.robIdx, probe.isLoad,
                      probe.isStore);
-
-  stats.update_state(&dut);
 
 #ifdef FUZZING
   // isExit

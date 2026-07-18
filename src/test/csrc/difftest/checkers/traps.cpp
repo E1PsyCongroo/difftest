@@ -56,11 +56,12 @@ void ArchEventChecker::clear_valid(DifftestArchEvent &probe) {
 int ArchEventChecker::check(const DifftestArchEvent &probe) {
   // interrupt has a higher priority than exception
   // TODO: we should ensure they don't happen at the same time
-  auto dut = new DiffTestState;
-  dut->regs = get_regs();
-  dut->commit->pc = probe.exceptionPC;
-  stats.update_state(dut);
-  delete dut;
+  DiffTestState cur_state{};
+  cur_state.regs.xrf = proxy->state.xrf;
+  cur_state.regs.csr = proxy->state.csr;
+  cur_state.commit->pc = proxy->state.pc;
+  stats.update_state(&cur_state);
+
   if (probe.interrupt) {
     return do_interrupt(probe);
   } else {
@@ -111,8 +112,6 @@ int ArchEventChecker::do_exception(const DifftestArchEvent &probe) {
   }
 
 #ifdef FUZZING
-  static uint64_t lastExceptionPC = 0xdeadbeafUL;
-  static int sameExceptionPCCount = 0;
   if (probe.exceptionPC == lastExceptionPC) {
     if (sameExceptionPCCount >= 5) {
       Info("Found infinite loop at exception_pc %lx. Exiting.\n", probe.exceptionPC);

@@ -19,6 +19,7 @@
 #include "common.h"
 #include <array>
 #include <cstdint>
+#include <sstream>
 #include <string>
 #include <utility>
 #include <vector>
@@ -194,13 +195,24 @@ private:
 #endif // FIRRTL_COVER
 
 #if VM_COVERAGE == 1
-class VerilatorCoverPoint {
-public:
+struct VerilatorCoverPoint {
+  std::string filename;
+  std::string lineno;
+  std::string column;
+  std::string type;
+  std::string linescov;
+  std::string comment;
+  std::string hier;
   std::string name;
-  uint64_t count = 0;
-  bool acc = false;
+  uint64_t count;
+  bool acc;
 
-  explicit VerilatorCoverPoint(std::string name, uint64_t count) : name(std::move(name)), count(count) {}
+  void gen_name() {
+    std::ostringstream ss;
+    ss << "filename: " << filename << ", lineno: " << lineno << ", column: " << column << ", type: " << type
+       << ", linescov: " << linescov << ", comment: " << comment << ", hier: " << hier;
+    name = ss.str();
+  }
 };
 
 class VerilatorCoverGroup {
@@ -208,7 +220,7 @@ public:
   std::string name;
   std::vector<VerilatorCoverPoint> points;
 
-  explicit VerilatorCoverGroup(std::string name) : name(std::move(name)) {}
+  explicit VerilatorCoverGroup(std::string name) : name(std::move(name)), points{} {}
 };
 
 class VerilatorCoverage : public Coverage {

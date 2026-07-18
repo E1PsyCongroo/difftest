@@ -92,10 +92,13 @@ protected:
 class ArchEventChecker : public ProbeChecker<DifftestArchEvent> {
 public:
   ArchEventChecker(GetProbeFn get_probe, DiffState *state, RefProxy *proxy, GetRegsFn get_regs)
-      : ProbeChecker<DifftestArchEvent>(get_probe, state, proxy), get_regs(std::move(get_regs)) {}
+      : ProbeChecker<DifftestArchEvent>(get_probe, state, proxy), get_regs(std::move(get_regs)),
+        lastExceptionPC(0xdeadbeafUL), sameExceptionPCCount(0) {}
 
 private:
   GetRegsFn get_regs;
+  uint64_t lastExceptionPC;
+  int sameExceptionPCCount;
 
   bool get_valid(const DifftestArchEvent &probe) override;
   void clear_valid(DifftestArchEvent &probe) override;
